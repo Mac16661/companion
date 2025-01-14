@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Microphone to Speaker</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        background-color: #f0f0f0;
+      }
+      #toggleAudio {
+        font-size: 18px;
+        padding: 10px 20px;
+        cursor: pointer;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        transition: background-color 0.3s;
+      }
+      #toggleAudio:hover {
+        background-color: #45a049;
+      }
+    </style>
+  </head>
+  <body>
+    <button id="toggleAudio">Start Audio</button>
+
+    <script>
+      let audioRecorder = null;
+      let audioPlayer = null;
+      let ws = null;
+      let stream = null;
+
+      var name;
+      var age;
+      // fetches the user info on load
+      window.onload = function () {
+        // TODO: might what to fetch details like user_id, group_id, email, auth_token(used while establishing socket connection)
+        console.log("On loading time");
+        function GetURLParameter(sParam) {
+          var sPageURL = window.location.search.substring(1);
+          var sURLVariables = sPageURL.split("&");
+          for (var i = 0; i < sURLVariables.length; i++) {
+            var sParameterName = sURLVariables[i].split("=");
+            if (sParameterName[0] == sParam) {
+              return sParameterName[1];
+            }
+          }
+        }
+
+        // TODO: Set it to age and name param
+        console.log(GetURLParameter("name"));
+        console.log(GetURLParameter("age"));
+      };
+
+      // Create audio context
+      const BUFFER_SIZE = 4800;
+
+      //=========================================================================================================================================
+      class Player {
+        constructor() {
+          this.playbackNode = null;
+        }
+
+        async init(sampleRate) {
+          const audioContext = new AudioContext({ sampleRate });
+          await audioContext.audioWorklet.addModule(
+            "/audio-playback-worklet.js"
+          );
+
+          this.playbackNode = new AudioWorkletNode(
+            audioContext,
+            "audio-playback-worklet"
+          );
+          this.playbackNode.connect(audioContext.destination);
+        }
+
+        play(buffer) {
+          if (this.playbackNode) {
+            this.playbackNode.port.postMessage(buffer);
+          }
+        }
+
+        stop() {
+          if (this.playbackNode) {
+            this.playbackNode.port.postMessage(null);
+          }
+        }
+      }
+
+      class Recorder {
+        constructor(onDataAvailable) {
+          this.onDataAvailable = onDataAvailable;
+          this.audioContext = null;
+          this.mediaStream = null;
+          this.mediaStreamSource = null;
+          this.workletNode = null;
+        }
+
+        async start(stream) {
+          console.log("starting");
+          try {
+            if (this.audioContext) {
+              await this.audioContext.close();
+            }
+
+            this.audioContext = new (window.AudioContext ||
+              window.webkitAudioContext)({ sampleRate: 24000 });
+            console.log("1");
+
+            await this.audioContext.audioWorklet.addModule(
+              "/audio-processor-worklet.js"
+            );
+            console.log("2");
+
+            this.mediaStream = stream;
+            this.mediaStreamSource = this.audioContext.createMediaStreamSource(
+              this.mediaStream
+            );
+
+            this.workletNode = new AudioWorkletNode(
+              this.audioContext,
+              "audio-processor-worklet"
+            );
+            this.workletNode.port.onmessage = (event) => {
+              // const isSpeech = this.vad.processAudio(
+              //   buffer,
+              //   this.audioContext.sampleRate
+              // );
+              // if (isSpeech) {
+              //   this.onDataAvailable(event.data.buffer);
+              // }
+
+              this.onDataAvailable(event.data.buffer);
+            };
+
+            this.mediaStreamSource.connect(this.workletNode);
+            this.workletNode.connect(this.audioContext.destination);
+            console.log("done");
+          } catch (error) {
+            console.log("error", error);
+            this.stop();
+          }
+        }
+
+        async stop() {
+          if (this.mediaStream) {
+            this.mediaStream.getTracks().forEach((track) => track.stop());
+            this.mediaStream = null;
+          }
+
+          if (this.audioContext) {
+            await this.audioContext.close();
+            this.audioContext = null;
+          }
+
+          this.mediaStreamSource = null;
+          this.workletNode = null;
+        }
+      }
+      // Function to get microphone input and send it to WebSocket
+      async function startAudio() {
+        try {
+          // handle output -> speaker stuff
+          ws = new WebSocket("ws://localhost:3000/call/freebie"); // TODO: Change this logic
+
+          audioPlayer = new Player();
+          audioPlayer.init(24000);
+
+          ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            console.log(event); // TODO: printing audio event
+            if (data?.type !== "response.audio.delta") return;
+
+            const binary = atob(data.delta);
+            const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+            const pcmData = new Int16Array(bytes.buffer);
+
+            audioPlayer.play(pcmData);
+          };
+
+          let buffer = new Uint8Array();
+
+          const appendToBuffer = (newData) => {
+            const newBuffer = new Uint8Array(buffer.length + newData.length);
+            newBuffer.set(buffer);
+            newBuffer.set(newData, buffer.length);
+            buffer = newBuffer;
+          };
+
+          const handleAudioData = (data) => {
+            const uint8Array = new Uint8Array(data);
+            appendToBuffer(uint8Array);
+
+            if (buffer.length >= BUFFER_SIZE) {
+              const toSend = new Uint8Array(buffer.slice(0, BUFFER_SIZE));
+              buffer = new Uint8Array(buffer.slice(BUFFER_SIZE));
+
+              const regularArray = String.fromCharCode(...toSend);
+              const base64 = btoa(regularArray);
+
+              ws.send(
+                JSON.stringify({
+                  type: "input_audio_buffer.append",
+                  audio: base64,
+                })
+              );
+            }
+          };
+
+          // handle microphone -> input websocket
+          audioRecorder = new Recorder(handleAudioData);
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+          });
+
+          await audioRecorder.start(stream);
+        } catch (error) {
+          console.error("Error accessing the microphone", error);
+          alert(
+            "Error accessing the microphone. Please check your settings and try again."
+          );
+        }
+      }
+
+      // Stop audio streaming, stops audio player, terminate websocket and release mic
+      async function stopAudio() {
+        try {
+          console.log("Stopping audio initiated ");
+          // Stop the recorder
+          if (audioRecorder) {
+            await audioRecorder.stop();
+            audioRecorder = null;
+            console.log("Recorder is stopped and null now", audioRecorder);
+          }
+
+          // Stop the player
+          if (audioPlayer) {
+            audioPlayer.stop();
+            audioPlayer = null;
+            console.log(
+              "audio player is stopped and null now is stopped and null now",
+              audioRecorder
+            );
+          }
+
+          // Close the WebSocket
+          if (ws) {
+            ws.close();
+            ws = null;
+            console.log(
+              "web socket connection is stopped and null now is stopped and null now",
+              ws
+            );
+          }
+
+          // Stop the media stream
+          if (stream) {
+            stream.getTracks().forEach((track) => track.stop());
+            stream = null;
+            console.log("stream cleared from line 252(stopAudio fn)", ws);
+          }
+
+          // TODO: close tab programmatically
+          console.log("Audio and WebSocket stopped successfully.");
+        } catch (error) {
+          console.error("Error stopping audio or WebSocket:", error);
+        }
+      }
+      //===========================================================================================================================================
+      function blobToBase64(blob) {
+        return new Promise((resolve, _) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.readAsDataURL(blob);
+        });
+      }
+
+      async function getMicrophone() {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+          });
+          return new MediaRecorder(stream, { mimeType: "audio/webm" });
+        } catch (error) {
+          console.error("Error accessing microphone:", error);
+          throw error;
+        }
+      }
+
+      async function openMicrophone(microphone, ws) {
+        return new Promise((resolve) => {
+          microphone.onstart = () => {
+            console.log("Client: Microphone opened");
+            // document.body.classList.add("recording");
+            resolve();
+          };
+          microphone.ondataavailable = async (event) => {
+            console.log("client: microphone data received");
+            if (event.data.size > 0) {
+              // socket.emit("audio_stream", event.data); // TODO: Change this logic
+
+              const base64 = await blobToBase64(event.data);
+              console.log(typeof(base64));
+
+              await ws.send(
+                JSON.stringify({
+                  type: "input_audio_buffer.append",
+                  audio: base64,
+                })
+              );
+            }
+          };
+          microphone.start(1000);
+        });
+      }
+
+      // TODO: Deepgram Audio Recorder
+      async function DeepgramAudioRecorder() {
+        ws = new WebSocket("ws://localhost:3000/call/freebie"); // TODO: Change this logic
+
+        microphone = await getMicrophone();
+        console.log("Client: Waiting to open microphone");
+        await openMicrophone(microphone, ws);
+      }
+
+      // TODO: Button to toggle audio
+      const toggleButton = document.getElementById("toggleAudio");
+      let isAudioOn = false;
+
+      toggleButton.addEventListener("click", async () => {
+        if (!isAudioOn) {
+          // await startAudio();
+          await DeepgramAudioRecorder();
+          toggleButton.textContent = "Stop Audio";
+          isAudioOn = true;
+        } else {
+          await stopAudio();
+          // audioContext.suspend();
+          toggleButton.textContent = "Start Audio";
+          isAudioOn = false;
+        }
+      });
+    </script>
+  </body>
+</html>

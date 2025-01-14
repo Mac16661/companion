@@ -1,0 +1,5 @@
+.env 
+Dockerfile
+humanStyle_conversation.jsonl
+mentalHealthData.jsonl
+hello.py

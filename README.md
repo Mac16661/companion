@@ -2,7 +2,7 @@
 
 Overview
 
-Companion is a web application powered by AI agents designed to provide personalized and intelligent chatbot experiences. It features several chatbots, each tailored to offer unique interactions and assistance.
+Companion is a web application powered by AI agents designed to provide personalized and intelligent chatbot experiences. It features several chatbots, each tailored to offer unique interactions and assistance. Additionally, Companion integrates web search and kkowledge base capabilities to deliver more comprehensive and accurate responses.
 
 <H2>Key Features</H2>
 

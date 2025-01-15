@@ -1,4 +1,6 @@
 <H1>Companion: AI-Powered Chatbot Web App</H1>
+![alt text](https://github.com/Mac16661/companion/blob/main/AArth.png?raw=true)
+
 
 Overview
 

@@ -17,5 +17,6 @@ dependencies = [
     "uvicorn[standard]>=0.32.1",
     "tavily-python",
     "beautifulsoup4",
+    "pydantic",
 ]
 

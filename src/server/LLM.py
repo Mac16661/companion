@@ -4,6 +4,8 @@ from openai import OpenAI
 from openai import AzureOpenAI
 # from src.server.KB import KnowledgeBase
 from dotenv import load_dotenv
+from pydantic import BaseModel
+from typing import Literal, List
 import os
 
 # Load environment variables from the .env file (if present)
@@ -23,6 +25,12 @@ AZURE_CLIENT= AzureOpenAI(
             api_version=AZURE_API_VERSION,
             azure_endpoint =AZURE_API_ENDPOINT
         )
+
+class UnderstandResponse(BaseModel):
+   definition: str
+   detailed_explanation: str
+   analogies_and_examples: str
+   suggested_questions: List[str]
 
 # NOT USING OPEN AI SERVICE. WEA ARE USING AZURE OPEN AI SERVICE
 class ChatAzureOpenAI():
@@ -68,11 +76,12 @@ class ChatOpenAI:
 
     def simpleResponseWithToolCall(self, msg, kb):
         # Message contains system message, chat history, and user current query
-        completion = client.chat.completions.create(
+        completion = client.beta.chat.completions.parse(
             model="gpt-4o-mini-2024-07-18",
             messages=msg,
-            max_tokens=600,
+            max_tokens=800,
             temperature=0.1,
+            response_format=UnderstandResponse,
             functions=[
                 {
                     'name': "web_search_tool",
@@ -85,7 +94,7 @@ class ChatOpenAI:
                                 'description': "Query from the user",
                             },
                         },
-                        'required': ["query"],  # Correct spelling for required
+                        'required': ["query"],  
                     }
                 },
             ],
@@ -94,25 +103,25 @@ class ChatOpenAI:
 
         response_message = completion.choices[0].message
 
+        print(response_message)
+
         if dict(response_message).get('function_call'):
             function_called = response_message.function_call.name
             function_args = response_message.function_call.arguments
             function_args = json.loads(function_args)["query"]
 
-            # print(function_args,"\n\n")
-
             if(function_called == "web_search_tool"):
-                # kb = KB # Getting the knowledge base module
                 context,imgs = kb.fetchContext(function_args)
                 msg[-1]["content"] = f"Context: {context}" + msg[-1]["content"]
-                # print(msg)
+
 
                 # Call simpleResponse function instead of this
-                completion = client.chat.completions.create(
+                completion = client.beta.chat.completions.parse(
                 model="gpt-4o-mini-2024-07-18",
                 messages=msg,
                 max_tokens=800,
-                temperature=0.1
+                temperature=0.1,
+                response_format=UnderstandResponse
                 )
 
                 return completion.choices[0].message, imgs

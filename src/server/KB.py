@@ -171,13 +171,9 @@ class KnowledgeBase:
                 
                 relationships = ""
                 for record in result:
-                    # relationships.append({
-                        # "node": record["e"]["name"],
-                        # "relationship": record["r"].type,
-                        # "connected_node": record["connected"]["name"],
-                        # "connected_type": record["connected"]["type"] 
-                        # })
                     relationships = relationships + " person "+str(record["r"].type)+" " + str(record["connected"]["name"])+","
+
+                # print("personal data ----------------------------------------------------------\n",relationships)
                 return relationships
         except Exception as e: 
             print("ERROR occurred while fetching personal data ", e)

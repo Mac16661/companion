@@ -102,8 +102,8 @@ async def handleChat(request: Request):
         llm = ChatOpenAI()
 
         # TODO: Implement structured output
-        gptResponse, web_img = llm.simpleResponseWithToolCall(msg=msg, kb=kb)
-
+        gptResponse, web_img, revelant_link = llm.simpleResponseWithToolCall(msg=msg, kb=kb,activeButton=userMsg['activeButton'])
+        print("links ",revelant_link)
         assistant = {
             "role": 'assistant',
             "content": gptResponse.content,
@@ -117,7 +117,8 @@ async def handleChat(request: Request):
             # web_img_result = "\n".join(web_img) 
             # append_res = assistant["content"] + "\n\n\n" + "Image references:\n" + web_img_result + "\n"
             # assistant["content"] = append_res
-
+        if len(revelant_link) > 0:
+            assistant["links"] = revelant_link
         kb.saveAssistantChatSummarizeData(assistant)
         
         return JSONResponse({"data": [assistant]})

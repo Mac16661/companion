@@ -130,7 +130,7 @@ class KnowledgeBase:
             elif activeButton == "academics":  # Academics search
                 print("Performing Knowledge-Based Search...")
                 relevant_text = self.fetchContextDB(query)  
-                revelant_link = ['']  # Ensure this is correctly defined
+                revelant_link = [] 
                 return relevant_text, [], revelant_link 
 
         except Exception as e:

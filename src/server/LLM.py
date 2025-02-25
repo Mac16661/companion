@@ -127,7 +127,7 @@ class ChatOpenAI:
                 return completion.choices[0].message, imgs, revelant_link
 
         else: # If no function call jus return the statement
-            return response_message, []
+            return response_message, [], []
 
 # TODO: For realtime audio conversion 
     async def streamResponse(self, msg, completeAns="", completeSentence=""):

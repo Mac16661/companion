@@ -98,12 +98,12 @@ async def handleChat(request: Request):
         kb.saveUserChatInferredPersonalData(MsgSave)
 
         msg = [sysMsg] + shortTermMemory + [currMsg]
-
+        print(" msg ",userMsg['system_content'] )
         llm = ChatOpenAI()
-
+        print(userMsg['activeButton'])
         # TODO: Implement structured output
         gptResponse, web_img, revelant_link = llm.simpleResponseWithToolCall(msg=msg, kb=kb,activeButton=userMsg['activeButton'])
-        print("links ",revelant_link)
+        # print("links ",revelant_link)
         assistant = {
             "role": 'assistant',
             "content": gptResponse.content,

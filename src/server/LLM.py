@@ -85,7 +85,7 @@ class ChatOpenAI:
         completion = client.beta.chat.completions.parse(
             model="gpt-4o-mini-2024-07-18",
             messages=msg,
-            max_tokens=1000,
+            max_tokens=5000,
             temperature=0.1,
             response_format=UnderstandResponse,
             functions=[
@@ -125,7 +125,7 @@ class ChatOpenAI:
                 completion = client.beta.chat.completions.parse(
                 model="gpt-4o-mini-2024-07-18",
                 messages=msg,
-                max_tokens=1000,
+                max_tokens=5000,
                 temperature=0.1,
                 response_format=UnderstandResponse
                 )

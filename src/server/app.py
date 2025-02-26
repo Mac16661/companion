@@ -46,7 +46,7 @@ async def handleChat(request: Request):
         kb = KnowledgeBase()
 
         # personal message from graph db (use non-blocking)
-        personalData = kb.fetchPersonalData(userMsg["user_id"])
+        personalData,age,edu = kb.fetchPersonalData(userMsg["user_id"])
         # long-term and short-term memory (use non-blocking)
         shortTermMemory = kb.fetchShortTermChat(userMsg) or []
         # TODO: Should pass it as a tool to llm
@@ -74,8 +74,12 @@ async def handleChat(request: Request):
                 "createdAt": datetime.datetime.now()
         }
 
-        currMsg["content"] = "\nQuery: " + userMsg['user_content']
+        # Helps to route request to chat bot
+        routingCurrMsg = userMsg['user_content']
 
+        currMsg["content"] = "Query: " + userMsg['user_content'] + " Explain it to "+ age +" years old. NOTE: Dont mention age/ education or any personal info in answer."
+        print(currMsg["content"])
+        
         # TODO: Dont use image inputs with tool calling agents
         if "image" in userMsg and userMsg["image"] != "":
             content = [{"type": "text", "text": currMsg["content"]},
@@ -96,13 +100,19 @@ async def handleChat(request: Request):
             MsgSave["audio"] = userMsg["audio"] # for database
                    
         kb.saveUserChatInferredPersonalData(MsgSave)
-
+        
         msg = [sysMsg] + shortTermMemory + [currMsg]
 
         llm = ChatOpenAI()
 
-        # TODO: Implement structured output
-        gptResponse, web_img = llm.simpleResponseWithToolCall(msg=msg, kb=kb)
+        routed = llm.simpleResponse(routingCurrMsg)
+
+        if len(routed[0].content) > 0:
+            gptResponse, web_img = routed
+            # print(gptResponse)
+        else:
+            # TODO: Implement structured output
+            gptResponse, web_img = llm.simpleResponseWithToolCall(msg=msg, kb=kb)
 
         assistant = {
             "role": 'assistant',
@@ -111,12 +121,8 @@ async def handleChat(request: Request):
             "user_id": userMsg["user_id"],
         }
 
-        # TODO: change it to save array of images in the chat
         if len(web_img) > 0:
-            assistant["image"] = web_img # instead of sending the 0th element send th whole array
-            # web_img_result = "\n".join(web_img) 
-            # append_res = assistant["content"] + "\n\n\n" + "Image references:\n" + web_img_result + "\n"
-            # assistant["content"] = append_res
+            assistant["image"] = web_img 
 
         kb.saveAssistantChatSummarizeData(assistant)
         

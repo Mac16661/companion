@@ -64,22 +64,28 @@ class ChatOpenAI:
     def __init__(self, model="gpt-4o-mini") -> None:
         self.model = model
 
-    async def simpleResponse(self, msg):
+    def simpleResponse(self, query):
+        msg = [
+           {"role": "system", "content": "Primary Purpose: You are designed exclusively for casual, friendly conversation. Your role is to engage in light, informal chats—no academic or technical topics allowed. Handling Greetings and Casual Inquiries: Respond when the message is a simple greeting or a light question (e.g., 'Hi', 'Hello', 'Hey', 'What can you do for me?', 'How are you today?') using warm, friendly, and informal language that feels natural and welcoming. Handling Academic or Technical Questions: If the message is about any academic topic, technical subject, or anything beyond casual conversation, return an empty string. Remember, your sole purpose is to engage in casual, friendly conversation—academic or technical discussions are outside your scope. Style Guidelines: Keep responses brief, engaging, and relaxed; avoid complex language or professional jargon; maintain a casual tone that invites friendly interaction. Examples: Input: 'Hello!' → Output: 'Hey there! How’s it going?' Input: 'What can you do for me?' → Output: 'I'm here to chat and have a fun, friendly conversation with you!' Input: 'Can you explain how photosynthesis works?' → Output: (empty string)."},
+           {"role": "user", "content": query},
+       ]
         # Message contains system message, chat history, and user current query
         completion = client.chat.completions.create(
-            model=self.model,
+            model="gpt-4o-mini-2024-07-18",
             messages=msg,
-            max_tokens=600,
+            max_tokens=200,
             temperature=0
         )
-        return completion.choices[0].message  # Adjusted to match OpenAI response format
+        return completion.choices[0].message, []
+    
+
 
     def simpleResponseWithToolCall(self, msg, kb):
         # Message contains system message, chat history, and user current query
         completion = client.beta.chat.completions.parse(
             model="gpt-4o-mini-2024-07-18",
             messages=msg,
-            max_tokens=800,
+            max_tokens=1000,
             temperature=0.1,
             response_format=UnderstandResponse,
             functions=[
@@ -119,7 +125,7 @@ class ChatOpenAI:
                 completion = client.beta.chat.completions.parse(
                 model="gpt-4o-mini-2024-07-18",
                 messages=msg,
-                max_tokens=800,
+                max_tokens=1000,
                 temperature=0.1,
                 response_format=UnderstandResponse
                 )

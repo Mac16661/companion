@@ -135,7 +135,7 @@ class KnowledgeBase:
 
         except Exception as e:
             print("ERROR occurred while fetching context DB and WEB:", e)
-            return "", []
+            return "", [],[]
         
 
 
@@ -176,15 +176,21 @@ class KnowledgeBase:
                 """
                 result = session.run(query, name=user)
                 
+                age = ""
+                edu = ""
                 relationships = ""
                 for record in result:
+                    if str(record["r"].type) == "AGE_IS" :
+                        age = str(record["connected"]["name"])
+                    if str(record["r"].type) == "IS_STUDYING":
+                        edu = str(record["connected"]["name"])
                     relationships = relationships + " person "+str(record["r"].type)+" " + str(record["connected"]["name"])+","
 
-                # print("personal data ----------------------------------------------------------\n",relationships)
-                return relationships
+                # print("age and edu  ----------------------------------------------------------",age, edu)
+                return relationships,age,edu
         except Exception as e: 
             print("ERROR occurred while fetching personal data ", e)
-            return ""
+            return "","",""
         
 
     # Short term fetches chat form redis(using mongo db right now) fetch the first page

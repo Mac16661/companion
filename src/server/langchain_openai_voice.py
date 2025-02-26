@@ -1,153 +1,276 @@
-# TODO: LLM streaming api. Move it to llm_streaming folder
+import asyncio
 import json
-from openai import OpenAI
-from openai import AzureOpenAI
-# from src.server.KB import KnowledgeBase
+import websockets
+
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator, AsyncIterator, Any, Callable, Coroutine
+from src.server.utils import amerge # TODO: Shift it into langchain utils
+
+from langchain_core.tools import BaseTool
+from langchain_core._api import beta
+from langchain_core.utils import secret_from_env
 from dotenv import load_dotenv
-from pydantic import BaseModel
-from typing import Literal, List
 import os
 
 # Load environment variables from the .env file (if present)
 load_dotenv()
 
-AZURE_API_KEY = os.getenv('AZURE_API_KEY')
-AZURE_API_VERSION = os.getenv('AZURE_API_VERSION') 
-AZURE_API_ENDPOINT = os.getenv('AZURE_API_ENDPOINT')
-
 SECRET_OPENAI = os.getenv('SECRET_OPENAI')
-# Initialize OpenAI Client
-client = OpenAI(api_key = SECRET_OPENAI)
+
+from pydantic import BaseModel, Field, SecretStr, PrivateAttr
+
+DEFAULT_MODEL = "gpt-4o-realtime-preview-2024-10-01"
+DEFAULT_URL = "wss://api.openai.com/v1/realtime"
+
+EVENTS_TO_IGNORE = {
+    "response.function_call_arguments.delta",
+    "rate_limits.updated",
+    "response.audio_transcript.delta",
+    "response.created",
+    "response.content_part.added",
+    "response.content_part.done",
+    "conversation.item.created",
+    "response.audio.done",
+    "session.created",
+    "session.updated",
+    "response.done",
+    "response.output_item.done",
+}
 
 
-AZURE_CLIENT= AzureOpenAI(
-            api_key=AZURE_API_KEY,  
-            api_version=AZURE_API_VERSION,
-            azure_endpoint =AZURE_API_ENDPOINT
-        )
+@asynccontextmanager
+async def connect(*, api_key: str, model: str, url: str) -> AsyncGenerator[
+    tuple[
+        Callable[[dict[str, Any] | str], Coroutine[Any, Any, None]],
+        AsyncIterator[dict[str, Any]],
+    ],
+    None,
+]:
+    """
+    async with connect(model="gpt-4o-realtime-preview-2024-10-01") as websocket:
+        await websocket.send("Hello, world!")
+        async for message in websocket:
+            print(message)
+    """
 
-class UnderstandResponse(BaseModel):
-   definition: str
-   detailed_explanation: str
-   analogies_and_examples: str
-   suggested_questions: List[str]
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "OpenAI-Beta": "realtime=v1",
+    }
 
-# NOT USING OPEN AI SERVICE. WEA ARE USING AZURE OPEN AI SERVICE
-class ChatAzureOpenAI():
-    def __init__(self, model="gpt-4o-mini") -> None:
-        self.client = AZURE_CLIENT
-        self.model=model
+    url = url or DEFAULT_URL
+    url += f"?model={model}"
 
-    async def simpleResponse(self, msg):
-        # Message contains system msg, chat history and user current query
-        completion = self.client.chat.completions.create(model=self.model, messages=msg, max_tokens=5000, temperature=0.1)
-        return completion.choices[0].message # .content
+    websocket = await websockets.connect(url, extra_headers=headers)
 
-    async def streamResponse(self, msg, completeAns="", completeSentence=""):
-        completion = await self.client.chat.completions.create(model=self.model, messages=msg, stream=True, max_tokens=500, temperature=0)
-        for line in completion:
-            # print("####################################### ", line)
-            if len(line.choices) != 0:
-                if line.choices[0].delta.content != None:
-                    if line.choices[0].delta.content in ["." ,"?" , "!"]:
-                        yield json.dumps({"content": completeSentence + line.choices[0].delta.content, "status": "success"})
-                        completeAns = completeAns + line.choices[0].delta.content
-                        completeSentence = ""
-                    else:
-                        completeSentence = completeSentence + line.choices[0].delta.content
-                        completeAns = completeAns + line.choices[0].delta.content
+    try:
 
-        yield json.dumps({"content":completeAns, "status": "completed"})
-            
+        async def send_event(event: dict[str, Any] | str) -> None:
+            formatted_event = json.dumps(event) if isinstance(event, dict) else event
+            await websocket.send(formatted_event)
 
-class ChatOpenAI:
-    def __init__(self, model="gpt-4o-mini") -> None:
-        self.model = model
+        async def event_stream() -> AsyncIterator[dict[str, Any]]:
+            async for raw_event in websocket:
+                yield json.loads(raw_event)
 
-    def simpleResponse(self, query):
-        msg = [
-           {"role": "system", "content": "Primary Purpose: You are designed exclusively for casual, friendly conversation. Your role is to engage in light, informal chats—no academic or technical topics allowed. Handling Greetings and Casual Inquiries: Respond when the message is a simple greeting or a light question (e.g., 'Hi', 'Hello', 'Hey', 'What can you do for me?', 'How are you today?') using warm, friendly, and informal language that feels natural and welcoming. Handling Academic or Technical Questions: If the message is about any academic topic, technical subject, or anything beyond casual conversation, return an empty string. Remember, your sole purpose is to engage in casual, friendly conversation—academic or technical discussions are outside your scope. Style Guidelines: Keep responses brief, engaging, and relaxed; avoid complex language or professional jargon; maintain a casual tone that invites friendly interaction. Examples: Input: 'Hello!' → Output: 'Hey there! How’s it going?' Input: 'What can you do for me?' → Output: 'I'm here to chat and have a fun, friendly conversation with you!' Input: 'Can you explain how photosynthesis works?' → Output: (empty string)."},
-           {"role": "user", "content": query},
-       ]
-        # Message contains system message, chat history, and user current query
-        completion = client.chat.completions.create(
-            model="gpt-4o-mini-2024-07-18",
-            messages=msg,
-            max_tokens=500,
-            temperature=0
-        )
-        return completion.choices[0].message, []
-    
+        stream: AsyncIterator[dict[str, Any]] = event_stream()
+
+        yield send_event, stream
+    finally:
+        await websocket.close()
 
 
-    def simpleResponseWithToolCall(self, msg, kb, activeButton):
-        # Message contains system message, chat history, and user current query
-        completion = client.beta.chat.completions.parse(
-            model="gpt-4o-mini-2024-07-18",
-            messages=msg,
-            max_tokens=5000,
-            temperature=0.1,
-            response_format=UnderstandResponse,
-            functions=[
-                {
-                    'name': "web_search_tool",
-                    'description': "Searches the real-time web and provides more information about topics",
-                    'parameters': {
-                        'type': "object",
-                        'properties': {
-                            'query': {
-                                'type': "string",
-                                'description': "Query from the user",
-                            },
-                        },
-                        'required': ["query"],  
-                    }
+class VoiceToolExecutor(BaseModel):
+    """
+    Can accept function calls and emits function call outputs to a stream.
+    """
+
+    tools_by_name: dict[str, BaseTool]
+    _trigger_future: asyncio.Future = PrivateAttr(default_factory=asyncio.Future)
+    _lock: asyncio.Lock = PrivateAttr(default_factory=asyncio.Lock)
+
+    async def _trigger_func(self) -> dict:  # returns a tool call
+        return await self._trigger_future
+
+    async def add_tool_call(self, tool_call: dict) -> None:
+        # lock to avoid simultaneous tool calls racing and missing
+        # _trigger_future being
+        async with self._lock:
+            if self._trigger_future.done():
+                # TODO: handle simultaneous tool calls better
+                raise ValueError("Tool call adding already in progress")
+
+            self._trigger_future.set_result(tool_call)
+
+    async def _create_tool_call_task(self, tool_call: dict) -> asyncio.Task[dict]:
+        tool = self.tools_by_name.get(tool_call["name"])
+        if tool is None:
+            # immediately yield error, do not add task
+            raise ValueError(
+                f"tool {tool_call['name']} not found. "
+                f"Must be one of {list(self.tools_by_name.keys())}"
+            )
+
+        # try to parse args
+        try:
+            args = json.loads(tool_call["arguments"])
+        except json.JSONDecodeError:
+            raise ValueError(
+                f"failed to parse arguments `{tool_call['arguments']}`. Must be valid JSON."
+            )
+
+        async def run_tool() -> dict:
+            result = await tool.ainvoke(args)
+            try:
+                result_str = json.dumps(result)
+            except TypeError:
+                # not json serializable, use str
+                result_str = str(result)
+            return {
+                "type": "conversation.item.create",
+                "item": {
+                    "id": tool_call["call_id"],
+                    "call_id": tool_call["call_id"],
+                    "type": "function_call_output",
+                    "output": result_str,
                 },
-            ],
-            function_call='auto'
-        )
+            }
 
-        response_message = completion.choices[0].message
+        task = asyncio.create_task(run_tool())
+        return task
 
-        print(response_message)
+    async def output_iterator(self) -> AsyncIterator[dict]:  # yield events
+        trigger_task = asyncio.create_task(self._trigger_func())
+        tasks = set([trigger_task])
+        while True:
+            done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            for task in done:
+                tasks.remove(task)
+                if task == trigger_task:
+                    async with self._lock:
+                        self._trigger_future = asyncio.Future()
+                    trigger_task = asyncio.create_task(self._trigger_func())
+                    tasks.add(trigger_task)
+                    tool_call = task.result()
+                    try:
+                        new_task = await self._create_tool_call_task(tool_call)
+                        tasks.add(new_task)
+                    except ValueError as e:
+                        yield {
+                            "type": "conversation.item.create",
+                            "item": {
+                                "id": tool_call["call_id"],
+                                "call_id": tool_call["call_id"],
+                                "type": "function_call_output",
+                                "output": (f"Error: {str(e)}"),
+                            },
+                        }
+                else:
+                    yield task.result()
 
-        if dict(response_message).get('function_call'):
-            function_called = response_message.function_call.name
-            function_args = response_message.function_call.arguments
-            function_args = json.loads(function_args)["query"]
 
-            if(function_called == "web_search_tool"):
-                context,imgs,revelant_link = kb.fetchContext(function_args, activeButton)
-                msg[-1]["content"] = f"Context: {context}" + msg[-1]["content"]
+@beta()
+class OpenAIVoiceReactAgent(BaseModel):
+    model: str
+    api_key: SecretStr = Field(
+        alias="openai_api_key",
+        default_factory=secret_from_env("OPENAI_API_KEY", default=""),
+    )
+    instructions: str | None = None
+    tools: list[BaseTool] | None = None
+    url: str = Field(default=DEFAULT_URL)
 
+    async def aconnect(
+        self,
+        input_stream: AsyncIterator[str],
+        send_output_chunk: Callable[[str], Coroutine[Any, Any, None]],
+    ) -> None:
+        """
+        Connect to the OpenAI API and send and receive messages.
 
-                # Call simpleResponse function instead of this
-                completion = client.beta.chat.completions.parse(
-                model="gpt-4o-mini-2024-07-18",
-                messages=msg,
-                max_tokens=1000,
-                temperature=0.1,
-                response_format=UnderstandResponse
-                )
+        input_stream: AsyncIterator[str]
+            Stream of input events to send to the model. Usually transports input_audio_buffer.append events from the microphone.
+        output: Callable[[str], None]
+            Callback to receive output events from the model. Usually sends response.audio.delta events to the speaker.
 
-                return completion.choices[0].message, imgs, revelant_link
+        """
+        # formatted_tools: list[BaseTool] = [
+        #     tool if isinstance(tool, BaseTool) else tool_converter.wr(tool)  # type: ignore
+        #     for tool in self.tools or []
+        # ]
+        tools_by_name = {tool.name: tool for tool in self.tools}
+        tool_executor = VoiceToolExecutor(tools_by_name=tools_by_name)
 
-        else: # If no function call jus return the statement
-            return response_message, [], []
+        
+        async with connect(
+            model=self.model, api_key=SECRET_OPENAI, url=self.url
+        ) as (
+            model_send,
+            model_receive_stream,
+        ):
+            # sent tools and instructions with initial chunk
+            tool_defs = [
+                {
+                    "type": "function",
+                    "name": tool.name,
+                    "description": tool.description,
+                    "parameters": {"type": "object", "properties": tool.args},
+                }
+                for tool in tools_by_name.values()
+            ]
+            await model_send(
+                {
+                    "type": "session.update",
+                    "session": {
+                        "instructions": self.instructions,
+                        "input_audio_transcription": {
+                            "model": "whisper-1",
+                        },
+                        "tools": tool_defs,
+                    },
+                }
+            )
+            async for stream_key, data_raw in amerge(
+                input_mic=input_stream,
+                output_speaker=model_receive_stream,
+                tool_outputs=tool_executor.output_iterator(),
+            ):
+                try:
+                    data = (
+                        json.loads(data_raw) if isinstance(data_raw, str) else data_raw
+                    )
+                except json.JSONDecodeError:
+                    print("error decoding data:", data_raw)
+                    continue
 
-# TODO: For realtime audio conversion 
-    async def streamResponse(self, msg, completeAns="", completeSentence=""):
-        completion = await self.client.chat.completions.create(model=self.model, messages=msg, stream=True, max_tokens=500, temperature=0)
-        for line in completion:
-            # print("####################################### ", line)
-            if len(line.choices) != 0:
-                if line.choices[0].delta.content != None:
-                    if line.choices[0].delta.content in ["." ,"?" , "!"]:
-                        yield json.dumps({"content": completeSentence + line.choices[0].delta.content, "status": "success"})
-                        completeAns = completeAns + line.choices[0].delta.content
-                        completeSentence = ""
+                if stream_key == "input_mic":
+                    await model_send(data)
+                elif stream_key == "tool_outputs":
+                    print("tool output", data)
+                    await model_send(data)
+                    await model_send({"type": "response.create", "response": {}})
+                elif stream_key == "output_speaker":
+
+                    t = data["type"]
+                    if t == "response.audio.delta":
+                        await send_output_chunk(json.dumps(data))
+                    elif t == "input_audio_buffer.speech_started":
+                        print("interrupt")
+                        await send_output_chunk(json.dumps(data))
+                    elif t == "error":
+                        print("error:", data)
+                    elif t == "response.function_call_arguments.done":
+                        print("tool call", data)
+                        await tool_executor.add_tool_call(data)
+                    elif t == "response.audio_transcript.done":
+                        print("model:", data["transcript"])
+                    elif t == "conversation.item.input_audio_transcription.completed":
+                        print("user:", data["transcript"])
+                    elif t in EVENTS_TO_IGNORE:
+                        pass
                     else:
-                        completeSentence = completeSentence + line.choices[0].delta.content
-                        completeAns = completeAns + line.choices[0].delta.content
+                        # print(t)
+                        pass
 
-        yield json.dumps({"content":completeAns, "status": "completed"})
+
+__all__ = ["OpenAIVoiceReactAgent"]

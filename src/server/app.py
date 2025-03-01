@@ -102,17 +102,17 @@ async def handleChat(request: Request):
         kb.saveUserChatInferredPersonalData(MsgSave)
         
         msg = [sysMsg] + shortTermMemory + [currMsg]
-
+        print(" msg ",userMsg['system_content'] )
         llm = ChatOpenAI()
 
         routed = llm.simpleResponse(routingCurrMsg)
 
         if len(routed[0].content) > 0:
-            gptResponse, web_img = routed
+            gptResponse, web_img, revelant_link = routed
             # print(gptResponse)
         else:
             # TODO: Implement structured output
-            gptResponse, web_img = llm.simpleResponseWithToolCall(msg=msg, kb=kb)
+            gptResponse, web_img, revelant_link = llm.simpleResponseWithToolCall(msg=msg, kb=kb,activeButton=userMsg['activeButton'])
 
         assistant = {
             "role": 'assistant',
@@ -124,6 +124,9 @@ async def handleChat(request: Request):
         if len(web_img) > 0:
             assistant["image"] = web_img 
 
+        if len(revelant_link) > 0:
+            assistant["links"] = revelant_link
+      
         kb.saveAssistantChatSummarizeData(assistant)
         
         return JSONResponse({"data": [assistant]})

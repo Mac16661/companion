@@ -1,3 +1,4 @@
+
 # TODO: Put it inside knowledge_base
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
@@ -70,6 +71,7 @@ class KnowledgeBase:
                 strResult.append(s["text"])
 
             relevant_text, relevant_text_ids = re_rank_cross_encoders(query, strResult)
+            print("Performing Knowledge-Based Search...")
             return relevant_text
         except Exception as e:
             print("ERROR ocurred while fetching context :",e)
@@ -112,24 +114,28 @@ class KnowledgeBase:
         for para in all_paragraphs:
             # print(para.text)
             page_content += para.text
-
-        return page_content, image_res
+        print("Performing Web Search...")
+        return page_content, image_res,response
       except Exception as e:
         print("ERROR ocurred while fetching context from web :",e)
         return ""
       
     # Fetch context from both DB and WEB
-    def fetchContext(self, query):
-      try:
-        relevant_text = self.fetchContextDB(query)
-        if(relevant_text == ""):
-          print("======================================================== doing web serach")
-          relevant_text, relevant_img = self.fetchContextWeb(query)
-          return relevant_text, relevant_img
-        return relevant_text, []
-      except Exception as e:
-        print("ERROR ocurred while fetching context DB and WEB :",e)
-        return "", []
+    def fetchContext(self,query, activeButton):
+        try:
+            if activeButton == "web search":  # Web search
+                
+                relevant_text, relevant_img, revelant_link = self.fetchContextWeb(query)  
+                return relevant_text, relevant_img, revelant_link
+
+            elif activeButton == "academics":  # Academics search
+                
+                relevant_text = self.fetchContextDB(query)
+                return relevant_text, [], [] 
+
+        except Exception as e:
+            print("ERROR occurred while fetching context DB and WEB:", e)
+            return "", [],[]
         
 
 
@@ -292,6 +298,7 @@ class KnowledgeBase:
             "group_id": ObjectId(msg["group_id"]),
             "user_id": ObjectId(msg["user_id"]),
             "image": msg.get("image", ""),
+            "links": msg.get("links", ""),
             "summery": "",
             "createdAt": datetime.datetime.now()
         }
@@ -300,8 +307,3 @@ class KnowledgeBase:
             # print("ASSISTANT: ",msg)
         except Exception as e:
             print("ERROR while saving assistant msg: ",e)
-
-
-
-
-

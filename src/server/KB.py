@@ -130,9 +130,8 @@ class KnowledgeBase:
 
             elif activeButton == "academics":  # Academics search
                 
-                relevant_text = self.fetchContextDB(query)  
-                revelant_link = [] 
-                return relevant_text, [], revelant_link 
+                relevant_text = self.fetchContextDB(query)
+                return relevant_text, [], [] 
 
         except Exception as e:
             print("ERROR occurred while fetching context DB and WEB:", e)

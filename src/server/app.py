@@ -123,8 +123,10 @@ async def handleChat(request: Request):
 
         if len(web_img) > 0:
             assistant["image"] = web_img 
+
         if len(revelant_link) > 0:
             assistant["links"] = revelant_link
+      
         kb.saveAssistantChatSummarizeData(assistant)
         
         return JSONResponse({"data": [assistant]})

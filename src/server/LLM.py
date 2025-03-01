@@ -76,7 +76,7 @@ class ChatOpenAI:
             max_tokens=200,
             temperature=0
         )
-        return completion.choices[0].message, []
+        return completion.choices[0].message, [], []
     
 
 

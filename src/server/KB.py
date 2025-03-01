@@ -71,6 +71,7 @@ class KnowledgeBase:
                 strResult.append(s["text"])
 
             relevant_text, relevant_text_ids = re_rank_cross_encoders(query, strResult)
+            print("Performing Knowledge-Based Search...")
             return relevant_text
         except Exception as e:
             print("ERROR ocurred while fetching context :",e)
@@ -113,7 +114,7 @@ class KnowledgeBase:
         for para in all_paragraphs:
             # print(para.text)
             page_content += para.text
-
+        print("Performing Web Search...")
         return page_content, image_res,response
       except Exception as e:
         print("ERROR ocurred while fetching context from web :",e)
@@ -123,12 +124,12 @@ class KnowledgeBase:
     def fetchContext(self,query, activeButton):
         try:
             if activeButton == "web search":  # Web search
-                print("Performing Web Search...")
+                
                 relevant_text, relevant_img, revelant_link = self.fetchContextWeb(query)  
                 return relevant_text, relevant_img, revelant_link
 
             elif activeButton == "academics":  # Academics search
-                print("Performing Knowledge-Based Search...")
+                
                 relevant_text = self.fetchContextDB(query)  
                 revelant_link = [] 
                 return relevant_text, [], revelant_link 

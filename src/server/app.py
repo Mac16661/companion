@@ -108,7 +108,7 @@ async def handleChat(request: Request):
         routed = llm.simpleResponse(routingCurrMsg)
 
         if len(routed[0].content) > 0:
-            gptResponse, web_img = routed
+            gptResponse, web_img, revelant_link = routed
             # print(gptResponse)
         else:
             # TODO: Implement structured output

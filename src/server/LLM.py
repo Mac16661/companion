@@ -117,7 +117,7 @@ class ChatOpenAI:
             function_args = json.loads(function_args)["query"]
 
             if(function_called == "web_search_tool"):
-                context,imgs,revelant_link = kb.fetchContext(function_args, activeButton)
+                context,imgs,relevant_link = kb.fetchContext(function_args, activeButton)
                 msg[-1]["content"] = f"Context: {context}" + msg[-1]["content"]
 
 
@@ -129,8 +129,7 @@ class ChatOpenAI:
                 temperature=0.1,
                 response_format=UnderstandResponse
                 )
-
-                return completion.choices[0].message, imgs, revelant_link
+                return completion.choices[0].message, imgs, relevant_link
 
         else: # If no function call jus return the statement
             return response_message, [], []

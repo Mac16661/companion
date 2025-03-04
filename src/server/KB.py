@@ -58,7 +58,8 @@ class KnowledgeBase:
                     '$project': {
                         'text': 1,  # Project only the 'text' field
                         'score': {'$meta': 'searchScore'},  # Include the similarity score
-                        '_id': 0
+                        '_id': 0,
+                        'source': 1
                     }
                 }
             ]
@@ -66,13 +67,16 @@ class KnowledgeBase:
             results = list(self.vectorCollection.aggregate(pipeline))
 
             strResult = []
-
+            linkResult = []
             for s in results:
                 strResult.append(s["text"])
 
-            relevant_text, relevant_text_ids = re_rank_cross_encoders(query, strResult)
+            for s in results:
+                if "source" in s and s["source"]:
+                    linkResult.append(s["source"])
+            relevant_text, relevant_text_ids, relevant_link = re_rank_cross_encoders(query, strResult, linkResult)
             print("Performing Knowledge-Based Search...")
-            return relevant_text
+            return relevant_text, relevant_link
         except Exception as e:
             print("ERROR ocurred while fetching context :",e)
             return ""
@@ -122,6 +126,7 @@ class KnowledgeBase:
       
     # Fetch context from both DB and WEB
     def fetchContext(self,query, activeButton):
+        print("calling fetch context: ", activeButton)
         try:
             if activeButton == "web search":  # Web search
                 
@@ -129,9 +134,8 @@ class KnowledgeBase:
                 return relevant_text, relevant_img, revelant_link
 
             elif activeButton == "academics":  # Academics search
-                
-                relevant_text = self.fetchContextDB(query)
-                return relevant_text, [], [] 
+                relevant_text, relevant_link = self.fetchContextDB(query)
+                return relevant_text, [], relevant_link
 
         except Exception as e:
             print("ERROR occurred while fetching context DB and WEB:", e)

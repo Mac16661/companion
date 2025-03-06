@@ -120,7 +120,7 @@ async def handleChat(request: Request):
             "group_id": userMsg["group_id"],
             "user_id": userMsg["user_id"],
         }
-
+        print(revelant_link)
         if len(web_img) > 0:
             assistant["image"] = web_img 
 

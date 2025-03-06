@@ -43,37 +43,63 @@ class KnowledgeBase:
     def fetchContextDB(self, query, nResults: int = 50):
         try:
             embedd = getEmbeddings(query)
-
+            edu="undergraduate"
             pipeline = [
-                {
-                    '$vectorSearch': {
-                        'index': 'vector_index',  # Your vector index name
-                        'path': 'embedding',  # The field where vectors are stored
-                        'queryVector': embedd.tolist(),  # The query vector
-                        'numCandidates': 500,  # Number of candidates to retrieve
-                        'limit': nResults  # Limit the number of results
-                    }
-                },
-                {
-                    '$project': {
-                        'text': 1,  # Project only the 'text' field
-                        'score': {'$meta': 'searchScore'},  # Include the similarity score
-                        '_id': 0,
-                        'source': 1
-                    }
+        {
+            '$vectorSearch': {
+                'index': 'vector_index',  # Your vector index name
+                'path': 'embedding',  # The field where vectors are stored
+                'queryVector': embedd.tolist(),  # The query vector
+                'numCandidates': 150,  # Number of candidates to retrieve
+                'limit': nResults  # Limit the number of results
+            }
+        },
+        {
+                '$match': {
+                    'tag': edu  # Only match documents where tag matches edu
                 }
-            ]
-
+            },
+        {
+            '$project': {
+                'text': 1,  # Project only the 'text' field
+                'score': {'$meta': 'searchScore'},  # Include the similarity score
+                '_id': 0,
+                'source': 1,
+                'file_name' : 1,
+                'tag':1
+            }
+        }
+    ]
             results = list(self.vectorCollection.aggregate(pipeline))
 
             strResult = []
             linkResult = []
-            for s in results:
-                strResult.append(s["text"])
+            # for s in results:
+            #     strResult.append(s["text"])
+            # for s in results:
+            #     if "source" in s and s["source"]:
+            #         strResult.append(s["text"])
+            #         item = {
+            #             "source": s.get("source"),
+            #             "name": s.get("file_name"),
+            #             "tag": s.get("tag")
+            #             }
+            #         linkResult.append(item)
+
+            seen_sources = set()
 
             for s in results:
-                if "source" in s and s["source"]:
-                    linkResult.append(s["source"])
+                source = s.get("source")
+                if source and source not in seen_sources:
+                    seen_sources.add(source)
+                    strResult.append(s["text"])
+                    item = {
+                        "source": source,
+                        "name": s.get("file_name"),
+                        "tag": s.get("tag")
+                    }
+                    linkResult.append(item)
+
             relevant_text, relevant_text_ids, relevant_link = re_rank_cross_encoders(query, strResult, linkResult)
             print("Performing Knowledge-Based Search...")
             return relevant_text, relevant_link

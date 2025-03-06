@@ -85,6 +85,7 @@ class KnowledgeBase:
                         "tag": s.get("tag")
                         }
                     linkResult.append(item)
+
             relevant_text, relevant_text_ids, relevant_link = re_rank_cross_encoders(query, strResult, linkResult)
             print("Performing Knowledge-Based Search...")
             return relevant_text, relevant_link

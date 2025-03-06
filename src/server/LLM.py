@@ -80,7 +80,7 @@ class ChatOpenAI:
     
 
 
-    def simpleResponseWithToolCall(self, msg, kb, activeButton):
+    def simpleResponseWithToolCall(self, msg, kb,activeButton):
         # Message contains system message, chat history, and user current query
         completion = client.beta.chat.completions.parse(
             model="gpt-4o-mini-2024-07-18",
@@ -117,7 +117,7 @@ class ChatOpenAI:
             function_args = json.loads(function_args)["query"]
 
             if(function_called == "web_search_tool"):
-                context,imgs,relevant_link = kb.fetchContext(function_args, activeButton)
+                context,imgs,relevant_link = kb.fetchContext(function_args,activeButton)
                 msg[-1]["content"] = f"Context: {context}" + msg[-1]["content"]
 
 

@@ -39,7 +39,7 @@ def getEmbeddings(query):
     except Exception as e:
         print("ERROR ocurred while transforming query to embeddings: ",e)
 
-def re_rank_cross_encoders(prompt: str , documents: list[str]) -> tuple[str, list[int]]:
+def re_rank_cross_encoders(prompt: str , documents: list[str], linkResult: list[str]) -> tuple[str, list[int], list[str]]:
         """Re-ranks documents using a cross-encoder model for more accurate relevance scoring.
 
         Uses the MS MARCO MiniLM cross-encoder model to re-rank the input documents based on
@@ -61,15 +61,15 @@ def re_rank_cross_encoders(prompt: str , documents: list[str]) -> tuple[str, lis
         try:
             relevant_text = ""
             relevant_text_ids = []
-
+            relevant_link=[]
             
             ranks = encoder_model.rank(prompt, documents, top_k=3)
             for rank in ranks:
                 if(rank["score"] > 1):
                   relevant_text += documents[rank["corpus_id"]]
                   relevant_text_ids.append(rank["corpus_id"])
-
-            return relevant_text, relevant_text_ids
+                  relevant_link.append(linkResult[rank["corpus_id"]])  
+            return relevant_text, relevant_text_ids, relevant_link
         except Exception as e:
             print("ERROR ocurred while re-ranking context: ",e)
         

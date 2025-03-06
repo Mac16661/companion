@@ -55,11 +55,6 @@ class KnowledgeBase:
                 }
             },
             {
-                '$match': {
-                    'tag': edu  # Only match documents where tag matches edu
-                }
-            },
-            {
                 '$project': {
                     'text': 1,  # Project only the 'text' field
                     'score': {'$meta': 'searchScore'},  # Include the similarity score

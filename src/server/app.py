@@ -77,8 +77,7 @@ async def handleChat(request: Request):
         # Helps to route request to chat bot
         routingCurrMsg = userMsg['user_content']
 
-        currMsg["content"] = "Query: " + userMsg['user_content'] + " Explain it to "+ age +" years old. NOTE: Dont mention age/ education or any personal info in answer."
-        print(currMsg["content"])
+        currMsg["content"] = "Query: " + userMsg['user_content'] + " Explain it to "+ age +" years old. NOTE: Dont mention age/ education or any personal info in answer. Use web_search_tool to solve this query."
         
         # TODO: Dont use image inputs with tool calling agents
         if "image" in userMsg and userMsg["image"] != "":
@@ -102,7 +101,6 @@ async def handleChat(request: Request):
         kb.saveUserChatInferredPersonalData(MsgSave)
         
         msg = [sysMsg] + shortTermMemory + [currMsg]
-        print(" msg ",userMsg['system_content'] )
         llm = ChatOpenAI()
 
         routed = llm.simpleResponse(routingCurrMsg)

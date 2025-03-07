@@ -101,7 +101,6 @@ class KnowledgeBase:
                     linkResult.append(item)
 
             relevant_text, relevant_text_ids, relevant_link = re_rank_cross_encoders(query, strResult, linkResult)
-            print("Performing Knowledge-Based Search...")
             return relevant_text, relevant_link
         except Exception as e:
             print("ERROR ocurred while fetching context :",e)
@@ -144,7 +143,6 @@ class KnowledgeBase:
         for para in all_paragraphs:
             # print(para.text)
             page_content += para.text
-        print("Performing Web Search...")
         return page_content, image_res,response
       except Exception as e:
         print("ERROR ocurred while fetching context from web :",e)
@@ -171,7 +169,7 @@ class KnowledgeBase:
 
     # Push personal data to neo4j
     def push_to_neo4j(self, user_id, entities, relationships):
-        print("Pushing ot neo4j . . .")
+        print("Pushing to neo4j . . .")
         try:
             with self.driver.session() as session:
                 # Create User Node

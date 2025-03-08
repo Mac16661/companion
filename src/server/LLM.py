@@ -64,11 +64,14 @@ class ChatOpenAI:
     def __init__(self, model="gpt-4o-mini") -> None:
         self.model = model
 
-    def simpleResponse(self, query):
+    def simpleResponse(self, query, history, personalData):
+        hist = ' '.join(d['content']+", " for d in history)
         msg = [
-           {"role": "system", "content": "Primary Purpose: You are designed exclusively for casual, friendly conversation. Your role is to engage in light, informal chats—no academic or technical topics allowed. Handling Greetings and Casual Inquiries: Respond when the message is a simple greeting or a light question (e.g., 'Hi', 'Hello', 'Hey', 'What can you do for me?', 'How are you today?') using warm, friendly, and informal language that feels natural and welcoming. Handling Academic or Technical Questions: If the message is about any academic topic, technical subject, or anything beyond casual conversation, return an empty string. Remember, your sole purpose is to engage in casual, friendly conversation—academic or technical discussions are outside your scope. Style Guidelines: Keep responses brief, engaging, and relaxed; avoid complex language or professional jargon; maintain a casual tone that invites friendly interaction. Examples: Input: 'Hello!' → Output: 'Hey there! How’s it going?' Input: 'What can you do for me?' → Output: 'I'm here to chat and have a fun, friendly conversation with you!' Input: 'Can you explain how photosynthesis works?' → Output: (empty string)."},
-           {"role": "user", "content": query},
+           {"role": "system", "content": "Information you currently know to give personalized response:\n" + str(personalData)+ "\n\nPrimary Purpose: You are designed exclusively for casual, friendly conversation. Your role is to engage in light, informal chats—no academic or technical topics allowed. Handling Greetings and Casual Inquiries fro only current message : Respond when the message is a simple greeting or a light question (e.g., 'Hi', 'Hello', 'Hey', 'What can you do for me?', 'How are you today?') using warm, friendly, and informal language that feels natural and welcoming. Handling Academic or Technical Questions: If the message is about any academic topic, technical subject, or anything beyond casual conversation, return an empty string. Remember, your sole purpose is to engage in casual, friendly conversation—academic or technical discussions are outside your scope. Style Guidelines: Keep responses brief, engaging, and relaxed; avoid complex language or professional jargon; maintain a casual tone that invites friendly interaction. Examples: Input: 'Hello!' → Output: 'Hey there! How’s it going?' Input: 'What can you do for me?' → Output: 'I'm here to chat and have a fun, friendly conversation with you!' Input: 'Can you explain how photosynthesis works?' → Output:, 'what is rag' -> Output:, 'explain me this' -> Output:,  "},
+           {"role": "user", "content": "\nhistorical message: "+ hist + "\n\ncurrent message: " + query},
        ]
+        
+        # print(msg)
         # Message contains system message, chat history, and user current query
         completion = client.chat.completions.create(
             model="gpt-4o-mini-2024-07-18",
@@ -80,7 +83,7 @@ class ChatOpenAI:
     
 
 
-    def simpleResponseWithToolCall(self, msg, kb, activeButton):
+    def simpleResponseWithToolCall(self, msg, kb, activeButton, edu):
         # Message contains system message, chat history, and user current query
         completion = client.beta.chat.completions.parse(
             model="gpt-4o-mini-2024-07-18",
@@ -117,7 +120,7 @@ class ChatOpenAI:
             function_args = json.loads(function_args)["query"]
 
             if(function_called == "web_search_tool"):
-                context,imgs,relevant_link = kb.fetchContext(function_args, activeButton)
+                context,imgs,relevant_link = kb.fetchContext(function_args, activeButton, edu)
                 msg[-1]["content"] = f"Context: {context}" + msg[-1]["content"]
 
 

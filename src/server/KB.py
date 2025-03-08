@@ -40,10 +40,10 @@ class KnowledgeBase:
         self.vectorCollection = self.vectorDB["books"]
         self.tavily = TAVILY_CLIENT
 
-    def fetchContextDB(self, query, nResults: int = 50):
+    def fetchContextDB(self, query, edu, nResults: int = 50, ):
         try:
             embedd = getEmbeddings(query)
-            edu="undergraduate"
+            # edu="undergraduate"
             pipeline = [
         {
             '$vectorSearch': {
@@ -149,8 +149,8 @@ class KnowledgeBase:
         return ""
       
     # Fetch context from both DB and WEB
-    def fetchContext(self,query, activeButton):
-        print("calling fetch context: ", activeButton)
+    def fetchContext(self,query, activeButton, edu):
+        print("calling fetch context: ", activeButton+" edu: ", edu)
         try:
             if activeButton == "web search":  # Web search
                 
@@ -158,7 +158,7 @@ class KnowledgeBase:
                 return relevant_text, relevant_img, revelant_link
 
             elif activeButton == "academics":  # Academics search
-                relevant_text, relevant_link = self.fetchContextDB(query)
+                relevant_text, relevant_link = self.fetchContextDB(query, edu)
                 return relevant_text, [], relevant_link
 
         except Exception as e:

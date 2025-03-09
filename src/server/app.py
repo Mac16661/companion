@@ -47,6 +47,9 @@ async def handleChat(request: Request):
 
         # personal message from graph db (use non-blocking)
         personalData,age,edu = kb.fetchPersonalData(userMsg["user_id"])
+        # edu="undergraduate"
+        # age="21"
+        edu=edu.replace(" ", "").lower()
         # long-term and short-term memory (use non-blocking)
         shortTermMemory = kb.fetchShortTermChat(userMsg) or []
         # TODO: Should pass it as a tool to llm

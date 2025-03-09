@@ -72,6 +72,9 @@ class KnowledgeBase:
     ]
             results = list(self.vectorCollection.aggregate(pipeline))
             
+            print("db fetched(similarity search) -> ",len(results))
+
+
             strResult = []
             linkResult = []
             # for s in results:

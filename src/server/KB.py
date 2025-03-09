@@ -71,7 +71,7 @@ class KnowledgeBase:
         }
     ]
             results = list(self.vectorCollection.aggregate(pipeline))
-
+            
             strResult = []
             linkResult = []
             # for s in results:
@@ -87,7 +87,6 @@ class KnowledgeBase:
             #         linkResult.append(item)
 
             seen_sources = set()
-
             for s in results:
                 source = s.get("source")
                 if source and source not in seen_sources:
@@ -99,7 +98,6 @@ class KnowledgeBase:
                         "tag": s.get("tag")
                     }
                     linkResult.append(item)
-
             relevant_text, relevant_text_ids, relevant_link = re_rank_cross_encoders(query, strResult, linkResult)
             return relevant_text, relevant_link
         except Exception as e:

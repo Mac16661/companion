@@ -64,7 +64,7 @@ def re_rank_cross_encoders(prompt: str , documents: list[str], linkResult: list[
             relevant_link=[]
             ranks = encoder_model.rank(prompt, documents, top_k=3)
             for rank in ranks:
-                if(rank["score"] > 1):
+                if(rank["score"] > 0.75):
                     relevant_text += documents[rank["corpus_id"]]
                     relevant_text_ids.append(rank["corpus_id"])
                     relevant_link.append(linkResult[rank["corpus_id"]])  

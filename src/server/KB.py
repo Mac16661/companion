@@ -112,17 +112,22 @@ class KnowledgeBase:
       try:
         response = self.tavily.search(query_text, search_depth="advanced", include_images=True)
         # print("Raw response -> ", response)
-
+        
         image_res = response["images"]
         response = response["results"]
-
+        link_res=[]
+        for s in response:
+            item = {
+                    "url": s.get("url"),
+                    "content": s.get("content"),
+                }
+            link_res.append(item)
         # print("Searching internet -> ", response)
         # if response[0]['score'] < 0.81:
         #   print("WEB SEARCH SCORE < 0.81==========",response[0]['title'])
         #   return "", []
-
+        # print([response[0]['title']+response[0]['content']])
         # relevant_text, relevant_text_ids = re_rank_cross_encoders(query_text,[response[0]['title']+response[0]['content']])
-
         # if len(relevant_text_ids) < 1:
         #   return "",[]
 
@@ -144,7 +149,7 @@ class KnowledgeBase:
         for para in all_paragraphs:
             # print(para.text)
             page_content += para.text
-        return page_content, image_res,response
+        return page_content, image_res,link_res #response
       except Exception as e:
         print("ERROR ocurred while fetching context from web :",e)
         return ""

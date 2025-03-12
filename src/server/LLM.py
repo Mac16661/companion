@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel
 from typing import Literal, List
 import os
+import time
 
 # Load environment variables from the .env file (if present)
 load_dotenv()
@@ -22,8 +23,8 @@ client = OpenAI(api_key = SECRET_OPENAI)
 
 AZURE_CLIENT= AzureOpenAI(
             api_key=AZURE_API_KEY,  
+            azure_endpoint =AZURE_API_ENDPOINT,
             api_version=AZURE_API_VERSION,
-            azure_endpoint =AZURE_API_ENDPOINT
         )
 
 class UnderstandResponse(BaseModel):
@@ -73,10 +74,10 @@ class ChatOpenAI:
         
         # print(msg)
         # Message contains system message, chat history, and user current query
-        completion = client.chat.completions.create(
+        completion = AZURE_CLIENT.chat.completions.create(
             model="gpt-4o-mini-2024-07-18",
             messages=msg,
-            max_tokens=200,
+            max_tokens=60,
             temperature=0
         )
         return completion.choices[0].message, [], []
@@ -85,12 +86,12 @@ class ChatOpenAI:
 
     def simpleResponseWithToolCall(self, msg, kb, activeButton, edu):
         # Message contains system message, chat history, and user current query
-        completion = client.beta.chat.completions.parse(
+        completion = AZURE_CLIENT.beta.chat.completions.parse(
             model="gpt-4o-mini-2024-07-18",
             messages=msg,
-            max_tokens=5000,
+            max_tokens=200,
             temperature=0.1,
-            response_format=UnderstandResponse,
+            # response_format=UnderstandResponse,
             functions=[
                 {
                     'name': "web_search_tool",
@@ -123,12 +124,11 @@ class ChatOpenAI:
                 context,imgs,relevant_link = kb.fetchContext(function_args, activeButton, edu)
                 msg[-1]["content"] = f"Context: {context}" + msg[-1]["content"]
 
-
                 # Call simpleResponse function instead of this
-                completion = client.beta.chat.completions.parse(
-                model="gpt-4o-mini-2024-07-18",
+                completion = AZURE_CLIENT.beta.chat.completions.parse(
+                model="gpt-4o-mini",
                 messages=msg,
-                max_tokens=5000,
+                max_tokens=1500,
                 temperature=0.1,
                 response_format=UnderstandResponse
                 )

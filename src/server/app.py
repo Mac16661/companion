@@ -15,7 +15,6 @@ from bson import json_util
 from bson import ObjectId
 
 
-
 from src.server.utils import  websocketStream, speech2text, websocket_stream
 from src.server.STT import SpeechToText
 from src.server.LLM import ChatOpenAI
@@ -54,7 +53,6 @@ async def handleChat(request: Request):
         shortTermMemory = kb.fetchShortTermChat(userMsg) or []
         # TODO: Should pass it as a tool to llm
         # longTermMemory = await kb.fetchChatHistory(userMsg) or []
-
 
         sysMsg = {
             "role": "system",

@@ -234,7 +234,7 @@ class KnowledgeBase:
             chats = list(self.chatCollection.find(
                     {"group_id": ObjectId(group_id), "user_id": ObjectId(user_id)},
                     {"role": 1, "content": 1, "_id": 0}
-                ).sort("createdAt", -1 ).limit(6)) # TODO: Change this limit
+                ).sort("createdAt", -1 ).limit(2)) # TODO: Change this limit
 
             # print(type(chats)) 
 
@@ -264,19 +264,19 @@ class KnowledgeBase:
     def saveUserChatInferredPersonalData(self, msg):
         # TODO: Only use user current query(without historical context) to infer entities and relationship
         # extracts personal info
-        id=msg["user_id"]
+        # id=msg["user_id"]
 
-        # TODO: Might break here
-        text = f"USER_ID={id} " + msg["content"]
-        result = extract_entities_and_relationships(text)
-        entities = result['entities']
-        relationships = result['relationships']
+        # # TODO: Might break here
+        # text = f"USER_ID={id} " + msg["content"]
+        # result = extract_entities_and_relationships(text)
+        # entities = result['entities']
+        # relationships = result['relationships']
 
-        # print("\nEXTRACT PERSONAL DATA:: ", entities,"\n",relationships)
+        # # print("\nEXTRACT PERSONAL DATA:: ", entities,"\n",relationships)
 
-        # save personal data to neo4j
-        if len(relationships) > 0:
-            self.push_to_neo4j(msg["user_id"],entities, relationships)
+        # # save personal data to neo4j
+        # if len(relationships) > 0:
+        #     self.push_to_neo4j(msg["user_id"],entities, relationships)
 
         # Converting id from string to mongo object
         msg["user_id"] = ObjectId(msg["user_id"])

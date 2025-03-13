@@ -104,7 +104,7 @@ async def handleChat(request: Request):
         msg = [sysMsg] + shortTermMemory + [currMsg]
         llm = ChatOpenAI()
 
-        history = shortTermMemory[-4:] if len(shortTermMemory) >= 4 else shortTermMemory
+        history = shortTermMemory[-2:] if len(shortTermMemory) >= 2 else shortTermMemory
         routed = llm.simpleResponse(routingCurrMsg, history, personalData)
 
         if len(routed[0].content) > 0:

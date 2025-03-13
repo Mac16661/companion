@@ -105,13 +105,13 @@ async def handleChat(request: Request):
         llm = ChatOpenAI()
 
         history = shortTermMemory[-2:] if len(shortTermMemory) >= 2 else shortTermMemory
-        routed = llm.simpleResponse(routingCurrMsg, history, personalData)
+        # routed = llm.simpleResponse(routingCurrMsg, history, personalData)
 
         # if len(routed[0].content) > 0:
         #     gptResponse, web_img, revelant_link = routed
         #     # print(gptResponse)
         # else:
-            # TODO: Implement structured output
+        # TODO: Implement structured output
         gptResponse, web_img, revelant_link = llm.simpleResponseWithToolCall(msg=msg, kb=kb,activeButton=userMsg['activeButton'],edu=edu,query=routingCurrMsg,history=history)
 
         assistant = {

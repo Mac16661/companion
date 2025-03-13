@@ -65,26 +65,26 @@ class ChatOpenAI:
     def __init__(self, model="gpt-4o-mini") -> None:
         self.model = model
 
-    def simpleResponse(self, query, history, personalData):
-        hist = ' '.join(d['content']+", " for d in history)
-        msg = [
-           {"role": "system", "content": "Information you currently know to give personalized response:\n" + str(personalData)+ "\n\nPrimary Purpose: You are designed exclusively for casual, friendly conversation. Your role is to engage in light, informal chats—no academic or technical topics allowed. Handling Greetings and Casual Inquiries fro only current message : Respond when the message is a simple greeting or a light question (e.g., 'Hi', 'Hello', 'Hey', 'What can you do for me?', 'How are you today?') using warm, friendly, and informal language that feels natural and welcoming. Handling Academic or Technical Questions: If the message is about any academic topic, technical subject, or anything beyond casual conversation, return an empty string. Remember, your sole purpose is to engage in casual, friendly conversation—academic or technical discussions are outside your scope. Style Guidelines: Keep responses brief, engaging, and relaxed; avoid complex language or professional jargon; maintain a casual tone that invites friendly interaction. Examples: Input: 'Hello!' → Output: 'Hey there! How’s it going?' Input: 'What can you do for me?' → Output: 'I'm here to chat and have a fun, friendly conversation with you!' Input: 'Can you explain how photosynthesis works?' → Output:, 'what is rag' -> Output:, 'explain me this' -> Output:,  'explain what is risk and reward in trading' -> Output:, 'what is trading' -> Output:, 'how to start trading' -> Output:,  "},
-           {"role": "user", "content": "\nhistorical message: "+ hist + "\n\ncurrent message: " + query},
-       ]
+    # def simpleResponse(self, query, history, personalData):
+    #     hist = ' '.join(d['content']+", " for d in history)
+    #     msg = [
+    #        {"role": "system", "content": "Information you currently know to give personalized response:\n" + str(personalData)+ "\n\nPrimary Purpose: You are designed exclusively for casual, friendly conversation. Your role is to engage in light, informal chats—no academic or technical topics allowed. Handling Greetings and Casual Inquiries fro only current message : Respond when the message is a simple greeting or a light question (e.g., 'Hi', 'Hello', 'Hey', 'What can you do for me?', 'How are you today?') using warm, friendly, and informal language that feels natural and welcoming. Handling Academic or Technical Questions: If the message is about any academic topic, technical subject, or anything beyond casual conversation, return an empty string. Remember, your sole purpose is to engage in casual, friendly conversation—academic or technical discussions are outside your scope. Style Guidelines: Keep responses brief, engaging, and relaxed; avoid complex language or professional jargon; maintain a casual tone that invites friendly interaction. Examples: Input: 'Hello!' → Output: 'Hey there! How’s it going?' Input: 'What can you do for me?' → Output: 'I'm here to chat and have a fun, friendly conversation with you!' Input: 'Can you explain how photosynthesis works?' → Output:, 'what is rag' -> Output:, 'explain me this' -> Output:,  'explain what is risk and reward in trading' -> Output:, 'what is trading' -> Output:, 'how to start trading' -> Output:,  "},
+    #        {"role": "user", "content": "\nhistorical message: "+ hist + "\n\ncurrent message: " + query},
+    #    ]
         
-        # print(msg)
-        # Message contains system message, chat history, and user current query
-        completion = AZURE_CLIENT.chat.completions.create(
-            model="gpt-4o-mini-2024-07-18",
-            messages=msg,
-            max_tokens=60,
-            temperature=0
-        )
-        return completion.choices[0].message, [], []
+    #     # print(msg)
+    #     # Message contains system message, chat history, and user current query
+    #     completion = AZURE_CLIENT.chat.completions.create(
+    #         model="gpt-4o-mini-2024-07-18",
+    #         messages=msg,
+    #         max_tokens=60,
+    #         temperature=0
+    #     )
+    #     return completion.choices[0].message, [], []
     
 
 
-    def simpleResponseWithToolCall(self, msg, kb, activeButton, edu):
+    def simpleResponseWithToolCall(self, msg, kb, activeButton, edu,query, history):
         # Message contains system message, chat history, and user current query
         completion = AZURE_CLIENT.beta.chat.completions.parse(
             model="gpt-4o-mini-2024-07-18",
@@ -92,25 +92,41 @@ class ChatOpenAI:
             max_tokens=200,
             temperature=0.1,
             # response_format=UnderstandResponse,
-            functions=[
-                {
-                    'name': "web_search_tool",
-                    'description': "Searches the real-time web and provides more information about topics",
-                    'parameters': {
-                        'type': "object",
-                        'properties': {
-                            'query': {
-                                'type': "string",
-                                'description': "Query from the user",
-                            },
-                        },
-                        'required': ["query"],  
-                    }
-                },
-            ],
-            function_call='auto'
-        )
 
+            functions=[
+            {
+                'name': "web_search_tool",
+                'description': "Searches the real-time web and provides more information about topics.",
+                'parameters': {
+                    'type': "object",
+                    'properties': {
+                        'query': {
+                            'type': "string",
+                            'description': "Query from the user.",
+                        },
+                    },
+                    'required': ["query"],  
+                }
+            },
+            {
+                'name': "casual_conversation",
+                'description': "Use this tool ONLY for casual, friendly, and informal conversations. "
+                   "If the user greets, asks about your capabilities, or engages in small talk, respond casually. "
+                   "DO NOT use this tool for questions requiring facts, research, or external knowledge.",
+                'parameters': {
+                    'type': "object",
+                    'properties': {
+                        'query': {
+                            'type': "string",
+                            'description': "User's message requiring a casual response (e.g., 'Hi', 'How are you?', 'What can you do?').",
+                        },
+                    },
+                    'required': ["query"],  
+                }
+            },
+        ],
+        function_call='auto'
+    )
         response_message = completion.choices[0].message
 
         print(response_message)
@@ -133,7 +149,22 @@ class ChatOpenAI:
                 response_format=UnderstandResponse
                 )
                 return completion.choices[0].message, imgs, relevant_link
+            elif function_called == "casual_conversation":
+                hist = ' '.join(d['content'] + ", " for d in history)
 
+                msg = [
+                {"role": "system", "content": "Information you currently know to give personalized response:\n" + "\n\nPrimary Purpose: You are designed exclusively for casual, friendly conversation. Your role is to engage in light, informal chats—no academic or technical topics allowed. Handling Greetings and Casual Inquiries fro only current message : Respond when the message is a simple greeting or a light question (e.g., 'Hi', 'Hello', 'Hey', 'What can you do for me?', 'How are you today?') using warm, friendly, and informal language that feels natural and welcoming. Handling Academic or Technical Questions: If the message is about any academic topic, technical subject, or anything beyond casual conversation, return an empty string. Remember, your sole purpose is to engage in casual, friendly conversation—academic or technical discussions are outside your scope. Style Guidelines: Keep responses brief, engaging, and relaxed; avoid complex language or professional jargon; maintain a casual tone that invites friendly interaction. Examples: Input: 'Hello!' → Output: 'Hey there! How’s it going?' Input: 'What can you do for me?' → Output: 'I'm here to chat and have a fun, friendly conversation with you!' Input: 'Can you explain how photosynthesis works?' → Output:, 'what is rag' -> Output:, 'explain me this' -> Output:,  'explain what is risk and reward in trading' -> Output:, 'what is trading' -> Output:, 'how to start trading' -> Output:,  "},
+                {"role": "user", "content": "\nhistorical message: "+ hist + "\n\ncurrent message: " + query},
+                ]
+
+                casual_completion = AZURE_CLIENT.chat.completions.create(
+                    model="gpt-4o-mini-2024-07-18",
+                    messages=msg,
+                    max_tokens=60,
+                    temperature=0
+                )
+
+                return casual_completion.choices[0].message, [], []
         else: # If no function call jus return the statement
             return response_message, [], []
 

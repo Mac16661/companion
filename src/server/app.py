@@ -107,12 +107,12 @@ async def handleChat(request: Request):
         history = shortTermMemory[-2:] if len(shortTermMemory) >= 2 else shortTermMemory
         routed = llm.simpleResponse(routingCurrMsg, history, personalData)
 
-        if len(routed[0].content) > 0:
-            gptResponse, web_img, revelant_link = routed
-            # print(gptResponse)
-        else:
+        # if len(routed[0].content) > 0:
+        #     gptResponse, web_img, revelant_link = routed
+        #     # print(gptResponse)
+        # else:
             # TODO: Implement structured output
-            gptResponse, web_img, revelant_link = llm.simpleResponseWithToolCall(msg=msg, kb=kb,activeButton=userMsg['activeButton'],edu=edu)
+        gptResponse, web_img, revelant_link = llm.simpleResponseWithToolCall(msg=msg, kb=kb,activeButton=userMsg['activeButton'],edu=edu,query=routingCurrMsg,history=history)
 
         assistant = {
             "role": 'assistant',

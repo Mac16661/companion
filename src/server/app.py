@@ -45,12 +45,13 @@ async def handleChat(request: Request):
         kb = KnowledgeBase()
 
         # personal message from graph db (use non-blocking)
-        personalData,age,edu = kb.fetchPersonalData(userMsg["user_id"])
-        # edu="undergraduate"
-        # age="21"
+        personal_task = asyncio.to_thread(kb.fetchPersonalData, userMsg["user_id"])
+        short_term_task = asyncio.to_thread(kb.fetchShortTermChat, userMsg)
+
+        personalData, age, edu = await personal_task
+        shortTermMemory = await short_term_task or []
+
         edu=edu.replace(" ", "").lower()
-        # long-term and short-term memory (use non-blocking)
-        shortTermMemory = kb.fetchShortTermChat(userMsg) or []
         # TODO: Should pass it as a tool to llm
         # longTermMemory = await kb.fetchChatHistory(userMsg) or []
 
@@ -78,7 +79,7 @@ async def handleChat(request: Request):
         # Helps to route request to chat bot
         routingCurrMsg = userMsg['user_content']
 
-        currMsg["content"] = "Query: " + userMsg['user_content'] + " Explain it to "+ age +" years old. NOTE: Dont mention age/ education or any personal info in answer. Use web_search_tool to solve this query."
+        currMsg["content"] = "Query: " + userMsg['user_content'] 
         
         # TODO: Dont use image inputs with tool calling agents
         if "image" in userMsg and userMsg["image"] != "":
@@ -112,7 +113,7 @@ async def handleChat(request: Request):
         #     # print(gptResponse)
         # else:
         # TODO: Implement structured output
-        gptResponse, web_img, revelant_link = llm.simpleResponseWithToolCall(msg=msg, kb=kb,activeButton=userMsg['activeButton'],edu=edu,query=routingCurrMsg,history=history)
+        gptResponse, web_img, revelant_link = llm.simpleResponseWithToolCall(msg=msg, kb=kb,activeButton=userMsg['activeButton'],edu=edu,age=age,query=routingCurrMsg,history=history, personalData=personalData)
 
         assistant = {
             "role": 'assistant',

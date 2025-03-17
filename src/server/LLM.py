@@ -15,10 +15,13 @@ load_dotenv()
 AZURE_API_KEY = os.getenv('AZURE_API_KEY')
 AZURE_API_VERSION = os.getenv('AZURE_API_VERSION') 
 AZURE_API_ENDPOINT = os.getenv('AZURE_API_ENDPOINT')
-
+SECRET_GROQ = os.getenv('SECRET_GROQ')
 SECRET_OPENAI = os.getenv('SECRET_OPENAI')
 # Initialize OpenAI Client
 client = OpenAI(api_key = SECRET_OPENAI)
+groq_client = OpenAI(
+    base_url="https://api.groq.com/openai/v1",
+    api_key=SECRET_GROQ)
 
 
 AZURE_CLIENT= AzureOpenAI(
@@ -84,10 +87,10 @@ class ChatOpenAI:
     
 
 
-    def simpleResponseWithToolCall(self, msg, kb, activeButton, edu,query, history):
+    def simpleResponseWithToolCall(self, msg, kb, activeButton, edu, age, query, history, personalData):
         # Message contains system message, chat history, and user current query
-        completion = AZURE_CLIENT.beta.chat.completions.parse(
-            model="gpt-4o-mini-2024-07-18",
+        completion = AZURE_CLIENT.chat.completions.create(
+            model="gpt-4o-mini",
             messages=msg,
             max_tokens=200,
             temperature=0.1,
@@ -109,7 +112,7 @@ class ChatOpenAI:
                 }
             },
             {
-                'name': "casual_conversation",
+                'name': "conversation_tool",
                 'description': "Use this tool ONLY for casual, friendly, and informal conversations. "
                    "If the user greets, asks about your capabilities, or engages in small talk, respond casually. "
                    "DO NOT use this tool for questions requiring facts, research, or external knowledge.",
@@ -138,7 +141,7 @@ class ChatOpenAI:
 
             if(function_called == "web_search_tool"):
                 context,imgs,relevant_link = kb.fetchContext(function_args, activeButton, edu)
-                msg[-1]["content"] = f"Context: {context}" + msg[-1]["content"]
+                msg[-1]["content"] = f"Context: {context}" + msg[-1]["content"] + " Explain it to "+ age +" years old. NOTE: Dont mention age/ education or any personal info in answer. Use web_search_tool to solve this query."
 
                 # Call simpleResponse function instead of this
                 completion = AZURE_CLIENT.beta.chat.completions.parse(
@@ -149,12 +152,12 @@ class ChatOpenAI:
                 response_format=UnderstandResponse
                 )
                 return completion.choices[0].message, imgs, relevant_link
-            elif function_called == "casual_conversation":
+            elif function_called == "conversation_tool":
                 hist = ' '.join(d['content'] + ", " for d in history)
 
                 msg = [
-                {"role": "system", "content": "Information you currently know to give personalized response:\n" + "\n\nPrimary Purpose: You are designed exclusively for casual, friendly conversation. Your role is to engage in light, informal chats—no academic or technical topics allowed. Handling Greetings and Casual Inquiries fro only current message : Respond when the message is a simple greeting or a light question (e.g., 'Hi', 'Hello', 'Hey', 'What can you do for me?', 'How are you today?') using warm, friendly, and informal language that feels natural and welcoming. Handling Academic or Technical Questions: If the message is about any academic topic, technical subject, or anything beyond casual conversation, return an empty string. Remember, your sole purpose is to engage in casual, friendly conversation—academic or technical discussions are outside your scope. Style Guidelines: Keep responses brief, engaging, and relaxed; avoid complex language or professional jargon; maintain a casual tone that invites friendly interaction. Examples: Input: 'Hello!' → Output: 'Hey there! How’s it going?' Input: 'What can you do for me?' → Output: 'I'm here to chat and have a fun, friendly conversation with you!' Input: 'Can you explain how photosynthesis works?' → Output:, 'what is rag' -> Output:, 'explain me this' -> Output:,  'explain what is risk and reward in trading' -> Output:, 'what is trading' -> Output:, 'how to start trading' -> Output:,  "},
-                {"role": "user", "content": "\nhistorical message: "+ hist + "\n\ncurrent message: " + query},
+                {"role": "system", "content": "\n\nPrimary Purpose: You are designed exclusively for casual, friendly personalized response based on personalized information you will get. Your role is to engage in light, informal chats—no academic or technical topics allowed. Handling Greetings and Casual Inquiries fro only current message : Respond when the message is a simple greeting or a light question (e.g., 'Hi', 'Hello', 'Hey', 'What can you do for me?', 'How are you today?') using warm, friendly, and informal language that feels natural and welcoming."},
+                {"role": "user", "content": "\nhistorical message: "+ hist + "\n\ncurrent message: " + query +"Information you currently know to give personalized response:"+ personalData },
                 ]
 
                 casual_completion = AZURE_CLIENT.chat.completions.create(
@@ -163,6 +166,13 @@ class ChatOpenAI:
                     max_tokens=60,
                     temperature=0
                 )
+
+                # casual_completion = groq_client.chat.completions.create(
+                #     messages=msg,
+                #     model="llama-3.2-1b-preview",
+                #     max_tokens=1000,
+                #     temperature=0.1
+                # )
 
                 return casual_completion.choices[0].message, [], []
         else: # If no function call jus return the statement
